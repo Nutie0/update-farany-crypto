@@ -1,0 +1,401 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}{{ crypto.nomCrypto }} - Graphique{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-8">
+                <h1>{{ crypto.nomCrypto }}</h1>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <p>Prix initial: <span class="price-initial">{{ crypto.prixInitialeCrypto }} €</span></p>
+                        <p>Prix actuel: <span class="price-current" id="currentPrice">{{ prix_actuel }} €</span></p>
+                        <p>Dernière mise à jour: <span id="lastUpdate">{{ derniere_maj ? derniere_maj|date('d/m/Y H:i') : 'Pas encore de variation' }}</span></p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="buy-form">
+                    <form id="buyForm" class="mt-3" data-crypto-id="{{ crypto.idCrypto }}">
+                        <div class="form-group">
+                            <label for="quantity">Quantité à acheter</label>
+                            <input type="number" class="form-control" id="quantity" min="0" step="0.01" required data-price="{{ prix_actuel }}">
+                        </div>
+
+                        <div class="mt-2">
+                            <span class="total-price">Prix total: <span id="totalPrice">0.00</span> €</span><br>
+                            <span class="commission-info">Commission ({{ commission_rate }}%): <span id="commissionAmount">0.00</span> €</span><br>
+                            <span class="total-with-commission">Total avec commission: <span id="totalWithCommission">0.00</span> €</span>
+                        </div>
+
+                        <button type="submit" class="btn btn-success mt-2">
+                            <i class="fas fa-shopping-cart"></i> Acheter
+                        </button>
+                    </form>
+                    <div id="buyMessage" class="alert mt-2" style="display: none;"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <div id="tradingChart"></div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .chart-container {
+            position: relative;
+            height: 600px;
+            width: 100%;
+            margin: 20px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        #tradingChart {
+            height: 100%;
+            width: 100%;
+            min-height: 500px;
+        }
+
+        .crypto-info {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px auto;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .crypto-price {
+            font-size: 2em;
+            font-weight: bold;
+            color: #2196F3;
+            margin-bottom: 1rem;
+        }
+
+        .buy-form {
+            max-width: 300px;
+            margin: 0 auto;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .total-price {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #28a745;
+        }
+
+        .btn-success {
+            width: 100%;
+            padding: 10px;
+            font-weight: bold;
+        }
+    </style>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Variables globales pour le graphique
+        let chart = null;
+        let candleSeries = null;
+
+        async function fetchData() {
+            console.log('Fetching data...');
+            try {
+                const response = await fetch('{{ path('app_crypto_variations', {'id': crypto.idCrypto}) }}');
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const rawData = await response.json();
+                console.log('Raw data received:', rawData);
+                
+                const formattedData = rawData
+                    .map(item => {
+                        try {
+                            const [datePart, timePart] = item.time.split(' ');
+                            const timestamp = Math.floor(new Date(`${datePart}T${timePart}Z`).getTime() / 1000);
+                            
+                            if (isNaN(timestamp)) {
+                                console.error('Invalid timestamp for item:', item);
+                                return null;
+                            }
+
+                            const dataPoint = {
+                                time: timestamp,
+                                open: parseFloat(item.open),
+                                high: parseFloat(item.high),
+                                low: parseFloat(item.low),
+                                close: parseFloat(item.close)
+                            };
+
+                            // Vérifier que toutes les valeurs sont valides
+                            if (Object.values(dataPoint).some(val => isNaN(val))) {
+                                console.error('Invalid values in data point:', dataPoint);
+                                return null;
+                            }
+
+                            return dataPoint;
+                        } catch (error) {
+                            console.error('Error processing data point:', item, error);
+                            return null;
+                        }
+                    })
+                    .filter(item => item !== null)
+                    .sort((a, b) => a.time - b.time);
+
+                console.log('Formatted data:', formattedData);
+                return formattedData;
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                return [];
+            }
+        }
+
+        function createChart() {
+            console.log('Creating chart...');
+            const chartContainer = document.getElementById('tradingChart');
+            
+            if (!chartContainer) {
+                console.error('Chart container not found!');
+                return null;
+            }
+
+            try {
+                // Nettoyer le graphique existant s'il existe
+                if (chart) {
+                    chart.remove();
+                    chart = null;
+                    candleSeries = null;
+                }
+
+                const { createChart } = window.LightweightCharts;
+                chart = createChart(chartContainer, {
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight,
+                    layout: {
+                        background: { type: 'solid', color: '#ffffff' },
+                        textColor: '#333333',
+                    },
+                    grid: {
+                        vertLines: { color: '#f0f0f0' },
+                        horzLines: { color: '#f0f0f0' },
+                    },
+                    crosshair: {
+                        mode: 'normal',
+                    },
+                    rightPriceScale: {
+                        borderColor: '#d1d4dc',
+                        scaleMargins: {
+                            top: 0.1,
+                            bottom: 0.1,
+                        },
+                        autoScale: true,
+                    },
+                    timeScale: {
+                        borderColor: '#d1d4dc',
+                        timeVisible: true,
+                        secondsVisible: false,
+                        fixLeftEdge: true,
+                        fixRightEdge: true,
+                        tickMarkFormatter: (time) => {
+                            const date = new Date(time * 1000);
+                            return date.toLocaleTimeString('fr-FR', {
+                                hour: '2-digit',
+                                minute: '2-digit'
+                            });
+                        },
+                        timeUnit: 'minute',
+                        ticksVisible: true,
+                        minBarSpacing: 4,
+                    },
+                });
+
+                candleSeries = chart.addCandlestickSeries({
+                    upColor: '#26a69a',
+                    downColor: '#ef5350',
+                    borderVisible: false,
+                    wickUpColor: '#26a69a',
+                    wickDownColor: '#ef5350'
+                });
+
+                console.log('Chart created successfully');
+                return chart;
+            } catch (error) {
+                console.error('Error creating chart:', error);
+                return null;
+            }
+        }
+
+        async function updateChart() {
+            console.log('Updating chart...');
+            try {
+                const data = await fetchData();
+                if (data.length === 0) {
+                    console.warn('No data available');
+                    return;
+                }
+
+                console.log(`Got ${data.length} data points`);
+
+                if (!chart || !candleSeries) {
+                    chart = createChart();
+                    if (!chart) {
+                        console.error('Failed to create chart');
+                        return;
+                    }
+                }
+
+                console.log('Setting data to candlestick series');
+                candleSeries.setData(data);
+
+                const currentPrice = document.getElementById('currentPrice');
+                if (currentPrice) {
+                    currentPrice.textContent = data[data.length - 1].close.toFixed(2) + ' €';
+                }
+
+                chart.timeScale().fitContent();
+                console.log('Chart update complete');
+            } catch (error) {
+                console.error('Error updating chart:', error);
+            }
+        }
+
+        // Fonction d'initialisation
+        function initialize() {
+            console.log('Starting initialization');
+            updateChart();
+
+            // Gestion de l'achat
+            const buyForm = document.getElementById('buyForm');
+            const quantityInput = document.getElementById('quantity');
+            const buyMessage = document.getElementById('buyMessage');
+
+            // Récupérer le taux de commission
+            const commissionRate = {{ commission_rate }};
+            
+            // Fonction pour calculer les totaux
+            function updateTotals() {
+                const quantity = parseFloat(quantityInput.value) || 0;
+                const price = parseFloat(quantityInput.getAttribute('data-price')) || 0;
+                
+                const totalPrice = quantity * price;
+                const commission = totalPrice * (commissionRate / 100);
+                const totalWithCommission = totalPrice + commission;
+                
+                document.getElementById('totalPrice').textContent = totalPrice.toFixed(2);
+                document.getElementById('commissionAmount').textContent = commission.toFixed(2);
+                document.getElementById('totalWithCommission').textContent = totalWithCommission.toFixed(2);
+            }
+            
+            // Écouter les changements de quantité
+            quantityInput?.addEventListener('input', updateTotals);
+            
+            // Initialiser les totaux
+            updateTotals();
+
+            // Gestion de l'achat
+            buyForm?.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const quantity = parseFloat(quantityInput.value);
+                const price = parseFloat(quantityInput.getAttribute('data-price'));
+
+                try {
+                    const response = await fetch('{{ path('app_crypto_buy', {'id': crypto.idCrypto}) }}', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            quantity: quantity,
+                            price: price
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (response.ok) {
+                        buyMessage.className = 'alert alert-success mt-2';
+                        buyMessage.textContent = 'Achat effectué avec succès !';
+                        quantityInput.value = '';
+                        document.getElementById('totalPrice').textContent = '0.00';
+                        document.getElementById('commissionAmount').textContent = '0.00';
+                        document.getElementById('totalWithCommission').textContent = '0.00';
+                        
+                        // Mettre à jour le graphique au lieu de recharger la page
+                        updateChart();
+                    } else {
+                        buyMessage.className = 'alert alert-danger mt-2';
+                        buyMessage.textContent = result.error;
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    buyMessage.className = 'alert alert-danger mt-2';
+                    buyMessage.textContent = 'Une erreur est survenue lors de l\'achat';
+                }
+                
+                buyMessage.style.display = 'block';
+            });
+
+            // Mise à jour toutes les minutes
+            const updateInterval = setInterval(updateChart, 60000);
+
+            // Nettoyage lors de la navigation
+            return () => {
+                console.log('Cleaning up...');
+                clearInterval(updateInterval);
+                if (chart) {
+                    chart.remove();
+                    chart = null;
+                    candleSeries = null;
+                }
+            };
+        }
+
+        // Gestion du redimensionnement
+        function handleResize() {
+            console.log('Resizing chart...');
+            const chartContainer = document.getElementById('tradingChart');
+            if (chart && chartContainer) {
+                chart.applyOptions({
+                    width: chartContainer.clientWidth,
+                    height: chartContainer.clientHeight
+                });
+            }
+        }
+
+        // Initialisation au chargement de la page
+        let cleanup = null;
+        document.addEventListener('DOMContentLoaded', () => {
+            cleanup = initialize();
+        });
+
+        // Réinitialisation après une navigation Turbo
+        document.addEventListener('turbo:render', () => {
+            if (cleanup) cleanup();
+            cleanup = initialize();
+        });
+
+        // Réinitialisation après un rechargement Ajax
+        document.addEventListener('turbo:frame-render', () => {
+            if (cleanup) cleanup();
+            cleanup = initialize();
+        });
+
+        // Gestion du redimensionnement
+        window.addEventListener('resize', handleResize);
+    </script>
+{% endblock %}

@@ -1,0 +1,145 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Historique des transactions{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .user-filter {
+            cursor: pointer;
+            transition: all 0.3s;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 20px;
+            background-color: #f8f9fa;
+            text-decoration: none;
+            color: #333;
+            display: inline-block;
+        }
+        .user-filter:hover, .user-filter.active {
+            background-color: #007bff;
+            color: white;
+        }
+        .filters-section {
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .transaction-table {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .transaction-row {
+            transition: background-color 0.3s;
+        }
+        .transaction-row:hover {
+            background-color: #f8f9fa;
+        }
+        .type-achat {
+            color: #28a745;
+        }
+        .type-vente {
+            color: #dc3545;
+        }
+        .user-email {
+            color: #007bff;
+            text-decoration: none;
+        }
+        .user-email:hover {
+            text-decoration: underline;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+        <h1 class="mb-4">Historique des transactions</h1>
+
+        <div class="filters-section">
+            <form method="get" class="row g-3">
+                <!-- Filtre utilisateurs -->
+                <div class="col-12 mb-3">
+                    <h5>Filtrer par utilisateur</h5>
+                    <div class="d-flex flex-wrap">
+                        {% for user in utilisateurs %}
+                            <a href="?utilisateur={{ user.id_utilisateur }}" 
+                               class="user-filter {% if filtres.utilisateur == user.id_utilisateur %}active{% endif %}">
+                                {{ user.email }}
+                            </a>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="crypto" class="form-label">Cryptomonnaie</label>
+                    <select name="crypto" id="crypto" class="form-select" onchange="this.form.submit()">
+                        <option value="">Toutes les cryptos</option>
+                        {% for crypto in cryptos %}
+                            <option value="{{ crypto.id_crypto }}" {% if filtres.crypto == crypto.id_crypto %}selected{% endif %}>
+                                {{ crypto.nom_crypto }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="col-md-3">
+                    <label for="date_debut" class="form-label">Date début</label>
+                    <input type="datetime-local" class="form-control" id="date_debut" name="date_debut"
+                           value="{{ filtres.date_debut }}" onchange="this.form.submit()">
+                </div>
+
+                <div class="col-md-3">
+                    <label for="date_fin" class="form-label">Date fin</label>
+                    <input type="datetime-local" class="form-control" id="date_fin" name="date_fin"
+                           value="{{ filtres.date_fin }}" onchange="this.form.submit()">
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-primary w-100">Appliquer les filtres</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="transaction-table">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Utilisateur</th>
+                        <th>Date</th>
+                        <th>Crypto</th>
+                        <th>Type</th>
+                        <th>Quantité</th>
+                        <th>Prix unitaire</th>
+                        <th>Prix total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                        <tr class="transaction-row">
+                            <td>
+                                <a href="?utilisateur={{ utilisateurs|filter(u => u.email == transaction.email)|first.id_utilisateur }}" 
+                                   class="user-email">
+                                    {{ transaction.email }}
+                                </a>
+                                {% if transaction.remarque == 'moi' %}
+                                    <span class="badge bg-primary">moi</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ transaction.date_action|date('d/m/Y H:i:s') }}</td>
+                            <td>{{ transaction.nom_crypto }}</td>
+                            <td class="{% if transaction.type_action == 'achat' %}type-achat{% else %}type-vente{% endif %}">
+                                {{ transaction.type_action|capitalize }}
+                            </td>
+                            <td>{{ transaction.nbrcrypto|number_format(8, '.', ' ') }}</td>
+                            <td>{{ transaction.prix|number_format(2, '.', ' ') }} €</td>
+                            <td>{{ transaction.prixtotal|number_format(2, '.', ' ') }} €</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+{% endblock %}

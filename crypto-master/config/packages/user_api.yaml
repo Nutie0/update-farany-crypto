@@ -1,0 +1,11 @@
+parameters:
+    user_api_url: '%env(USER_API_URL)%'
+
+services:
+    App\Controller\Api\V1\CryptoController:
+        arguments:
+            $userApiUrl: '%user_api_url%'
+    
+    App\Controller\Api\V1\PortefeuilleController:
+        arguments:
+            $userApiUrl: '%user_api_url%'

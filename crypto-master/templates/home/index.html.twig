@@ -1,0 +1,235 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Accueil - Crypto{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="card-title">Bienvenue {{ app.user.nom ?? app.user.email }}</h2>
+                    <p class="card-text">Vous êtes maintenant connecté à l'application Crypto.</p>
+                    <small class="text-muted" id="refresh-status">Actualisation automatique toutes les 10 secondes</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {# Nouvelles cartes de fonctionnalités #}
+    <div class="row mt-4">
+        {# Portefeuille #}
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-wallet me-2"></i>Mon Portefeuille
+                    </h5>
+                    <div class="wallet-balance mb-3">
+                        <p class="solde">{{ wallet.soldeUtilisateur|number_format(2, ',', ' ') }} €</p>
+                    </div>
+                    <p class="card-text">Gérez votre portefeuille crypto</p>
+                    <a href="{{ path('app_portefeuille') }}" class="btn btn-primary">
+                        <i class="fas fa-arrow-right me-2"></i>Voir le portefeuille
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {# Analyse #}
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-line me-2"></i>Analyse
+                    </h5>
+                    <p class="card-text">Analysez les performances des cryptomonnaies</p>
+                    <a href="{{ path('app_analyse') }}" class="btn btn-primary">
+                        <i class="fas fa-chart-bar me-2"></i>Voir les analyses
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {# Historique #}
+        <div class="col-md-4">
+            <div class="card feature-card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-history me-2"></i>Historique
+                    </h5>
+                    <p class="card-text">Consultez l'historique complet de vos transactions</p>
+                    <a href="{{ path('app_historique') }}" class="btn btn-primary">
+                        <i class="fas fa-clock me-2"></i>Voir l'historique
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {# Commission #}
+        {% if is_granted('ROLE_ADMIN') %}
+            <div class="col-md-4 mt-4">
+                <div class="card feature-card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-percentage me-2"></i>Commission
+                        </h5>
+                        <p class="card-text">Gérez les commissions d'achat et de vente</p>
+                        <a href="{{ path('app_commission_edit') }}" class="btn btn-primary">
+                            <i class="fas fa-cog me-2"></i>Gérer les commissions
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+
+        {# Analyse Commission #}
+        <div class="col-md-4 mt-4">
+            <div class="card feature-card">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <i class="fas fa-chart-pie me-2"></i>Analyse Commission
+                    </h5>
+                    <p class="card-text">Analysez les commissions par période</p>
+                    <a href="{{ path('app_commission_analyse') }}" class="btn btn-primary">
+                        <i class="fas fa-search-dollar me-2"></i>Analyser les commissions
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        {% if is_granted('ROLE_ADMIN') %}
+            <div class="col-md-4 mt-4">
+                <div class="card feature-card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <i class="fas fa-tasks me-2"></i>Transactions en attente
+                        </h5>
+                        <p class="card-text">
+                            {% if transactionsCount is defined %}
+                                {{ transactionsCount }} transaction(s) nécessite(nt) votre attention
+                            {% else %}
+                                Gérer les transactions en attente
+                            {% endif %}
+                        </p>
+                        <a href="{{ path('app_admin') }}" class="btn btn-primary">
+                            <i class="fas fa-arrow-right me-2"></i>Accéder au dashboard
+                        </a>
+                    </div>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="row mt-4">
+        <div class="col-md-12">
+            <div class="card" id="crypto-list">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h3 class="card-title mb-0">
+                            <i class="fas fa-coins me-2"></i>Liste des Cryptos
+                        </h3>
+                        <div>
+                            <button class="btn btn-sm btn-outline-primary" onclick="toggleAutoRefresh()" id="refresh-toggle">
+                                <i class="fas fa-sync-alt me-1"></i>Désactiver l'actualisation auto
+                            </button>
+                            <button class="btn btn-sm btn-primary ms-2" onclick="refreshCryptos()">
+                                <i class="fas fa-sync-alt me-1"></i>Actualiser
+                            </button>
+                        </div>
+                    </div>
+
+                    {% if cryptos is empty %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>Aucune crypto n'est disponible pour le moment.
+                        </div>
+                    {% else %}
+                        <div class="row">
+                            {% for crypto in cryptos %}
+                                <div class="col-md-3 mb-3">
+                                    <a href="{{ path('app_crypto_show', {'id': crypto.idCrypto}) }}" class="text-decoration-none">
+                                        <div class="card crypto-card">
+                                            <div class="card-body">
+                                                <h5 class="card-title">
+                                                    <i class="fas fa-coins me-2"></i>{{ crypto.nomCrypto }}
+                                                </h5>
+                                                <div class="crypto-price mb-2">
+                                                    <div><small>Prix initial:</small> {{ crypto.prixInitialeCrypto|number_format(2, ',', ' ') }} €</div>
+                                                    <div><small>Prix actuel:</small> {{ crypto.prix_actuel|number_format(2, ',', ' ') }} €</div>
+                                                </div>
+                                                <div class="crypto-date">
+                                                    {% if crypto.derniere_maj %}
+                                                        <i class="fas fa-clock me-1"></i>Dernière mise à jour: {{ crypto.derniere_maj|date('d/m/Y H:i') }}
+                                                    {% else %}
+                                                        <i class="fas fa-exclamation-circle me-1"></i>Pas encore de variation
+                                                    {% endif %}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascripts %}
+{{ parent() }}
+<script>
+let autoRefreshEnabled = true;
+let refreshInterval;
+
+function toggleAutoRefresh() {
+    const button = document.getElementById('refresh-toggle');
+    autoRefreshEnabled = !autoRefreshEnabled;
+    
+    if (autoRefreshEnabled) {
+        button.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Désactiver l\'actualisation auto';
+        startAutoRefresh();
+    } else {
+        button.innerHTML = '<i class="fas fa-sync-alt me-1"></i>Activer l\'actualisation auto';
+        clearInterval(refreshInterval);
+    }
+}
+
+function startAutoRefresh() {
+    refreshInterval = setInterval(refreshCryptos, 10000);
+}
+
+function refreshCryptos() {
+    const cryptoList = document.getElementById('crypto-list');
+    const refreshStatus = document.getElementById('refresh-status');
+    
+    // Ajouter une classe pour l'animation de chargement
+    cryptoList.style.opacity = '0.5';
+    refreshStatus.textContent = 'Actualisation en cours...';
+    
+    fetch(window.location.href)
+        .then(response => response.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const newDoc = parser.parseFromString(html, 'text/html');
+            
+            // Mettre à jour uniquement la section des cryptos
+            cryptoList.innerHTML = newDoc.getElementById('crypto-list').innerHTML;
+            
+            // Restaurer l'opacité
+            cryptoList.style.opacity = '1';
+            refreshStatus.textContent = 'Dernière actualisation : ' + new Date().toLocaleTimeString();
+        })
+        .catch(error => {
+            console.error('Erreur lors de l\'actualisation:', error);
+            refreshStatus.textContent = 'Erreur lors de l\'actualisation';
+            cryptoList.style.opacity = '1';
+        });
+}
+
+// Démarrer l'actualisation automatique au chargement de la page
+document.addEventListener('DOMContentLoaded', startAutoRefresh);
+</script>
+{% endblock %}

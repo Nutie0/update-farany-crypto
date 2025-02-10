@@ -1,0 +1,211 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Analyse des Cryptomonnaies{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .analyse-container {
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .form-section {
+            margin-bottom: 2rem;
+        }
+
+        .form-section h3 {
+            color: #333;
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+        }
+
+        .crypto-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .date-range {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin: 1rem 0;
+        }
+
+        .custom-select {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            width: 100%;
+            margin-bottom: 1rem;
+            font-size: 1rem;
+            color: #495057;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .custom-select:hover {
+            border-color: #adb5bd;
+        }
+
+        .custom-select:focus {
+            border-color: #80bdff;
+            outline: 0;
+            box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+        }
+
+        .custom-checkbox {
+            display: flex;
+            align-items: center;
+            padding: 0.5rem;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .custom-checkbox:hover {
+            background-color: #e9ecef;
+        }
+
+        .custom-checkbox input[type="checkbox"] {
+            margin-right: 0.5rem;
+        }
+
+        .datetime-input {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+            width: 100%;
+        }
+
+        .submit-button {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+
+        .submit-button:hover {
+            background-color: #0b5ed7;
+        }
+
+        .form-title {
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+            font-size: 2rem;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container">
+        <div class="analyse-container">
+            <h2 class="form-title">Analyse des Cryptomonnaies</h2>
+            
+            <form action="{{ path('app_analyse') }}" method="POST">
+                {# Type d'analyse #}
+                <div class="form-section">
+                    <h3>Type d'analyse</h3>
+                    <select name="type_analyse" class="custom-select" required>
+                        <option value="">Sélectionnez un type d'analyse</option>
+                        <option value="quartile">Premier Quartile</option>
+                        <option value="max">Maximum</option>
+                        <option value="min">Minimum</option>
+                        <option value="moyenne">Moyenne</option>
+                        <option value="ecart_type">Écart-type</option>
+                    </select>
+                </div>
+
+                {# Sélection des cryptos #}
+                <div class="form-section">
+                    <h3>Sélection des cryptomonnaies</h3>
+                    <div class="custom-checkbox mb-2">
+                        <input type="checkbox" id="select_all" name="crypto[]" value="tous">
+                        <label for="select_all">Tous</label>
+                    </div>
+                    <div class="crypto-list">
+                        {% for crypto in cryptos %}
+                            <div class="custom-checkbox">
+                                <input type="checkbox" id="crypto_{{ crypto.idCrypto }}" 
+                                       name="crypto[]" value="{{ crypto.idCrypto }}" 
+                                       class="crypto-checkbox">
+                                <label for="crypto_{{ crypto.idCrypto }}">{{ crypto.nomCrypto }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                {# Plage de dates #}
+                <div class="form-section">
+                    <h3>Période d'analyse</h3>
+                    <div class="date-range">
+                        <div>
+                            <label for="date_min">Date et heure min</label>
+                            <input type="datetime-local" id="date_min" name="date_min" 
+                                   class="datetime-input" required>
+                        </div>
+                        <div>
+                            <label for="date_max">Date et heure max</label>
+                            <input type="datetime-local" id="date_max" name="date_max" 
+                                   class="datetime-input" required>
+                        </div>
+                    </div>
+                </div>
+
+                {# Bouton de soumission #}
+                <button type="submit" class="submit-button">
+                    Lancer l'analyse
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const selectAll = document.getElementById('select_all');
+            const cryptoCheckboxes = document.querySelectorAll('.crypto-checkbox');
+
+            // Gestion du checkbox "Tous"
+            selectAll.addEventListener('change', function() {
+                cryptoCheckboxes.forEach(checkbox => {
+                    checkbox.checked = this.checked;
+                    checkbox.disabled = this.checked;
+                });
+            });
+
+            // Gestion des checkboxes individuels
+            cryptoCheckboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const allChecked = Array.from(cryptoCheckboxes).every(cb => cb.checked);
+                    selectAll.checked = allChecked;
+                });
+            });
+
+            // Initialisation des dates min/max
+            const now = new Date();
+            const oneWeekAgo = new Date(now.getTime() - (7 * 24 * 60 * 60 * 1000));
+            
+            document.getElementById('date_max').value = now.toISOString().slice(0, 16);
+            document.getElementById('date_min').value = oneWeekAgo.toISOString().slice(0, 16);
+        });
+    </script>
+{% endblock %}

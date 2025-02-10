@@ -1,0 +1,139 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Modification des Commissions{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .commission-container {
+            max-width: 600px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .commission-form {
+            display: grid;
+            gap: 2rem;
+        }
+
+        .form-group {
+            display: grid;
+            gap: 0.5rem;
+        }
+
+        .form-group label {
+            font-weight: 500;
+            color: #333;
+        }
+
+        .commission-input {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            padding: 0.5rem;
+        }
+
+        .commission-input input {
+            flex: 1;
+            border: none;
+            background: transparent;
+            padding: 0.5rem;
+            font-size: 1.1rem;
+        }
+
+        .commission-input input:focus {
+            outline: none;
+        }
+
+        .commission-input span {
+            color: #6c757d;
+            font-weight: 500;
+        }
+
+        .submit-button {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .submit-button:hover {
+            background-color: #0b5ed7;
+        }
+
+        .form-title {
+            color: #333;
+            margin-bottom: 2rem;
+            text-align: center;
+            font-size: 2rem;
+        }
+
+        .alert {
+            padding: 1rem;
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .alert-success {
+            background-color: #d1e7dd;
+            color: #0f5132;
+            border: 1px solid #badbcc;
+        }
+
+        .alert-danger {
+            background-color: #f8d7da;
+            color: #842029;
+            border: 1px solid #f5c2c7;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container">
+        <div class="commission-container">
+            <h2 class="form-title">Modification des Commissions</h2>
+
+            {% for label, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ label }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% endfor %}
+
+            <form action="{{ path('app_commission_edit') }}" method="POST" class="commission-form">
+                <div class="form-group">
+                    <label for="commission_achat">Commission d'achat</label>
+                    <div class="commission-input">
+                        <input type="number" id="commission_achat" name="commission_achat" 
+                               value="{{ commissions.achat }}" step="0.01" min="0" max="100" required>
+                        <span>%</span>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="commission_vente">Commission de vente</label>
+                    <div class="commission-input">
+                        <input type="number" id="commission_vente" name="commission_vente" 
+                               value="{{ commissions.vente }}" step="0.01" min="0" max="100" required>
+                        <span>%</span>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-button">
+                    Enregistrer les modifications
+                </button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

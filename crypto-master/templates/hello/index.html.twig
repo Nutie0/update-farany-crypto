@@ -1,0 +1,24 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Bienvenue - Crypto{% endblock %}
+
+{% block body %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body">
+                    <h1 class="card-title text-center mb-4">Bienvenue {{ user.nom }}</h1>
+                    <p class="text-center">Vous êtes connecté avec l'email : {{ user.email }}</p>
+                    
+                    <div class="d-grid gap-2 col-6 mx-auto mt-4">
+                        <a href="{{ path('app_logout') }}" class="btn btn-outline-danger">
+                            Se déconnecter
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

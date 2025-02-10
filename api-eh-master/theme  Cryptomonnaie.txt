@@ -1,0 +1,31 @@
+theme : Cryptomonnaie
+
+	API UserAPI
+		inscription 
+		connexion
+		profil(modifier et tout)
+
+	gestion de portefeuille de cryptomonnaie
+		ensemble na crypto ao anatiny ohatra de hoe misy crypto 5 na solana avec cours * isany …
+		somme ny volany rehetra 
+	gestion de fond (depot / retait)
+		misy historique na depot sy ensemble na depot rehetra
+		misy historique na retrait sy ensemble na depot rehetra
+	achat na cryptomonnaie
+		validation par email(isakin ny mividy de misy email tonga miteny hoe nividy an izao crypto zao de zao ny isany)
+	vente de cryptomonnaie
+		rehefa mivarotra de de lasa fond = prixCrypto*isany navarotra
+
+	
+page cours en temps reel(mise a jours en 10s)
+	nom Crypto de prix  
+
+	
+		
+
+	
+
+
+
+	
+		

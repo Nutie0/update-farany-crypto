@@ -1,0 +1,120 @@
+Dans le fichier AuthControllers nous avant les fonctionnalites suivant:
+    1- Enregistrement d'un utilisateur
+            Route : POST api/Auth/register
+            Méthode : Register
+        Description :
+            Permet d'enregistrer un nouvel utilisateur dans la base de données.
+             Le mot de passe est haché avant d'être stocké dans la base.
+            Valide que les champs Email, Password et Nom sont fournis.
+            Retour : Confirmation de l'enregistrement ou erreur en cas de champ manquant.
+
+   2- Connexion d'un utilisateur
+            Route : POST api/Auth/login
+            Méthode : Login
+        Description :
+            Permet à un utilisateur existant de se connecter.
+            Vérifie l'email et le mot de passe contre les données stockées.
+            Génère un token JWT valide si les informations sont correctes.
+            Limite les tentatives de connexion (via FailedLoginAttempts).
+            Envoie un email de réinitialisation si les tentatives maximales sont atteintes.
+        Retour :
+            Un token JWT si la connexion est réussie.
+        Erreur en cas d'échec des informations ou de dépassement des tentatives.
+
+    3. Réinitialisation des tentatives de connexion échouées
+            Route : POST api/Auth/reset-tentative
+            Méthode : ResetTentative
+        Description :
+            Réinitialise à 0 le compteur des tentatives de connexion échouées (FailedLoginAttempts) d'un utilisateur.
+            Recherche l'utilisateur par son email.
+        Entrée attendue :
+            Un paramètre de requête email (ex. ?email=user@example.com).        
+        Retour : Confirmation ou message d'erreur si l'email est introuvable
+
+
+Dans le fichier UtilisateurController.cs, nous avons implémenté les fonctionnalités suivantes pour gérer les utilisateurs  :
+
+    1-Récupération de tous les utilisateurs
+            Route : GET api/Utilisateur
+            Méthode : GetUtilisateurs
+        description :
+                Retourne la liste de tous les utilisateurs stockés dans la base de données.
+                Nécessite une authentification.
+        Retour : Liste des utilisateurs
+
+    2-Récupération d'un utilisateur par ID
+            Route : GET api/Utilisateur/{id}
+            Méthode : GetUtilisateur
+        Description :
+            Récupère un utilisateur spécifique en fonction de son ID.
+            Renvoie 404 Not Found si l'utilisateur n'existe pas.
+        Retour : Les informations de l'utilisateur ou une erreur.
+    
+    3-Ajout d'un nouvel utilisateur
+             Route : POST api/Utilisateur
+             Méthode : PostUtilisateur
+        Description :
+             Crée un nouvel utilisateur.
+            Le mot de passe est haché avant d'être stocké dans la base de données.
+        Entrée attendue : Un objet Utilisateur avec les informations nécessaires (ex. Nom, PasswordHash).
+        Retour : Les informations de l'utilisateur nouvellement créé, avec son ID.
+
+    4. Modification des informations d'un utilisateur
+            Route : PUT api/Utilisateur/{id}
+            Méthode : PutUtilisateur
+        Description :
+            Met à jour les informations d'un utilisateur existant.
+            Vérifie que l'email ne peut pas être modifié.
+            Permet de mettre à jour le nom et le mot de passe (haché avant de le stocker).
+        Entrée attendue : Un objet UpdateUser contenant les champs à modifier (facultatifs).
+        Retour : Les informations mises à jour ou une erreur.
+
+    5. Suppression d'un utilisateur
+            Route : DELETE api/Utilisateur/{id}
+            Méthode : GetProtectedData
+        Description :
+            Supprime un utilisateur existant basé sur son ID.
+            Renvoie 404 Not Found si l'utilisateur n'existe pas.
+        Retour : Aucun contenu (204 No Content) en cas de succès.
+
+Dans le fichier PasswordHasher.cs on a la fonctionnalités suivante :
+    1. Hachage d'un mot de passe
+            fonction : HashPassword
+        Description :
+            Prend un mot de passe en entrée et le hache en utilisant PBKDF2 avec SHA256.
+            Génère un sel aléatoire, puis combine le sel et le hachage dans un tableau de bytes avant de le convertir en une chaîne Base64 pour le stockage ou le transport.
+        Entrée attendue : Une chaîne de caractères représentant le mot de passe à hacher.
+        Retour : Une chaîne de caractères représentant le mot de passe haché sous forme de chaîne Base64.
+   
+    2. Vérification d'un mot de passe haché
+            fonction : VerifyPasswordHash
+        Description :
+            Prend un mot de passe haché et un mot de passe en clair en entrée, puis vérifie si le mot de passe en clair correspond au mot de passe haché en utilisant PBKDF2 avec SHA256.
+        Entrée attendue : 
+        	- password (string) : Mot de passe en texte clair.
+            - hashedPassword (string) : Mot de passe haché sous forme de chaîne Base64.
+        Retour : Un booléen indiquant si le mot de passe en clair correspond au mot de passe haché (true si oui, false sinon).
+
+
+Dans le fichier ProtectedController.cs on a la fonctionnalités suivante :
+            Route : GET/api/Protected/data
+            Méthode : DeleteUtilisateur
+        Description :
+          Cette route renvoie un message indiquant que la donnée demandée est protégée et nécessite un token JWT valide pour y accéder.
+           Elle est conçue pour être une démonstration ou un point d'accès à des données sécurisées  Retour : Aucun contenu (204 No Content) en cas de succès.
+        Retour :
+         En cas de succès (token valide) :
+                il y aura ce message JSON :    "message": "This is a protected data, accessible only with a valid token."
+
+                Code HTTP : 401 Unauthorized
+        
+
+Dans le fichier EmailService.cs on a la fonctionnalités suivante :
+            Méthode : SendPasswordResetEmail
+        Description :
+            Envoie un e-mail de réinitialisation de mot de passe à l'adresse e-mail spécifiée en utilisant les paramètres SMTP configurés dans la configuration de l'application. L'e-mail contient un lien de réinitialisation de mot de passe généré à partir de l'URL de base de l'API et de l'adresse e-mail de l'utilisateur.
+        Entrée attendue :
+            - email (string) : Adresse e-mail de l'utilisateur auquel envoyer l'e-mail de réinitialisation de mot de passe.
+        Retour : Aucun (void).
+
+

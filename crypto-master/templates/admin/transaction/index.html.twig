@@ -1,0 +1,91 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Administration des transactions{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>Administration des transactions</h1>
+    
+    <div class="card mb-4">
+        <div class="card-header">
+            <h2 class="h5 mb-0">Transactions en attente</h2>
+        </div>
+        <div class="card-body">
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>Utilisateur</th>
+                        <th>Type</th>
+                        <th>Montant</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for transaction in transactions %}
+                    <tr>
+                        <td>{{ transaction.portefeuille.utilisateur.email }}</td>
+                        <td>{{ transaction.action.typeAction }}</td>
+                        <td>{{ transaction.somme }}</td>
+                        <td>{{ transaction.dateHistorique|date('d/m/Y H:i') }}</td>
+                        <td>
+                            <div class="btn-group">
+                                <button class="btn btn-success btn-sm validate-transaction" 
+                                        data-id="{{ transaction.idHistoriqueUtilisateur }}"
+                                        data-action="approve">
+                                    <i class="fas fa-check"></i> Approuver
+                                </button>
+                                <button class="btn btn-danger btn-sm validate-transaction" 
+                                        data-id="{{ transaction.idHistoriqueUtilisateur }}"
+                                        data-action="reject">
+                                    <i class="fas fa-times"></i> Rejeter
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" class="text-center">Aucune transaction en attente</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% block javascripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buttons = document.querySelectorAll('.validate-transaction');
+    
+    buttons.forEach(button => {
+        button.addEventListener('click', function() {
+            const transactionId = this.dataset.id;
+            const action = this.dataset.action;
+            
+            fetch(`/admin/transaction/${action}/${transactionId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Recharger la page pour mettre à jour la liste
+                    location.reload();
+                } else {
+                    alert(data.error || 'Une erreur est survenue');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Une erreur est survenue');
+            });
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,183 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Liste des Cryptos{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .crypto-card {
+            transition: transform 0.2s;
+        }
+        
+        .crypto-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .crypto-amount {
+            font-size: 1.5em;
+            font-weight: bold;
+        }
+
+        .crypto-price {
+            color: #28a745;
+            font-weight: bold;
+        }
+
+        .crypto-date {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .buy-crypto {
+            margin-left: 10px;
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Liste des Cryptos</h1>
+            <a href="{{ path('app_crypto_new') }}" class="btn btn-primary">
+                <i class="fas fa-plus"></i> Ajouter une crypto
+            </a>
+        </div>
+
+        {% if cryptos is empty %}
+            <div class="alert alert-info">
+                Aucune crypto n'a été ajoutée pour le moment.
+            </div>
+        {% else %}
+            <div class="row">
+                {% for crypto in cryptos %}
+                    <div class="col-md-4 mb-4">
+                        <div class="card crypto-card">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ crypto.nomCrypto }}</h5>
+                                <p class="card-text">
+                                    Prix initial: <span class="price-initial">{{ crypto.prixInitialeCrypto }} €</span><br>
+                                    Prix actuel: <span id="currentPrice{{ crypto.idCrypto }}" class="price-current">{{ crypto.prix_actuel }} €</span><br>
+                                    {% if crypto.derniere_maj %}
+                                        <small class="crypto-date">Dernière mise à jour: {{ crypto.derniere_maj|date('d/m/Y H:i') }}</small>
+                                    {% else %}
+                                        <small class="crypto-date">Pas encore de variation</small>
+                                    {% endif %}
+                                </p>
+                                <div class="crypto-amount mb-2">
+                                    {{ crypto.nbrCrypto }} unités
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center">
+                                    <a href="{{ path('app_crypto_show', {'id': crypto.idCrypto}) }}" class="btn btn-primary">
+                                        <i class="fas fa-chart-line"></i> Voir le graphique
+                                    </a>
+                                    <button type="button" class="btn btn-success buy-crypto" data-bs-toggle="modal" data-bs-target="#buyModal{{ crypto.idCrypto }}">
+                                        <i class="fas fa-shopping-cart"></i> Acheter
+                                    </button>
+                                </div>
+
+                                <!-- Modal d'achat pour chaque crypto -->
+                                <div class="modal fade" id="buyModal{{ crypto.idCrypto }}" tabindex="-1" aria-labelledby="buyModalLabel{{ crypto.idCrypto }}" aria-hidden="true">
+                                    <div class="modal-dialog">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title" id="buyModalLabel{{ crypto.idCrypto }}">Acheter {{ crypto.nomCrypto }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                <form id="buyForm{{ crypto.idCrypto }}" class="buy-form" data-crypto-id="{{ crypto.idCrypto }}">
+                                                    <div class="mb-3">
+                                                        <label for="quantity{{ crypto.idCrypto }}" class="form-label">Quantité à acheter</label>
+                                                        <input type="number" class="form-control quantity-input" id="quantity{{ crypto.idCrypto }}" 
+                                                               min="0" step="0.01" required data-price="{{ crypto.prix_actuel }}">
+                                                    </div>
+                                                    <div class="mb-3">
+                                                        <span class="total-price">Total: <span id="totalPrice{{ crypto.idCrypto }}">0.00</span> €</span>
+                                                    </div>
+                                                    <button type="submit" form="buyForm{{ crypto.idCrypto }}" class="btn btn-success">Confirmer l'achat</button>
+                                                </form>
+                                                <div id="buyMessage{{ crypto.idCrypto }}" class="alert mt-2" style="display: none;"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <script>
+                                    document.addEventListener('DOMContentLoaded', function() {
+                                        const buyForm = document.getElementById('buyForm{{ crypto.idCrypto }}');
+                                        const quantityInput = document.getElementById('quantity{{ crypto.idCrypto }}');
+                                        const totalPriceSpan = document.getElementById('totalPrice{{ crypto.idCrypto }}');
+                                        const buyMessage = document.getElementById('buyMessage{{ crypto.idCrypto }}');
+                                        const currentPriceElement = document.getElementById('currentPrice{{ crypto.idCrypto }}');
+
+                                        // Mise à jour du prix total lors de la saisie de la quantité
+                                        quantityInput.addEventListener('input', function() {
+                                            const quantity = parseFloat(this.value) || 0;
+                                            const price = parseFloat(this.dataset.price);
+                                            const total = quantity * price;
+                                            totalPriceSpan.textContent = total.toFixed(2);
+                                        });
+
+                                        // Gestion de l'achat
+                                        buyForm.addEventListener('submit', async function(e) {
+                                            e.preventDefault();
+                                            
+                                            const cryptoId = this.dataset.cryptoId;
+                                            const quantity = parseFloat(quantityInput.value);
+                                            const price = parseFloat(quantityInput.dataset.price);
+
+                                            try {
+                                                const response = await fetch(`/crypto/${cryptoId}/buy`, {
+                                                    method: 'POST',
+                                                    headers: {
+                                                        'Content-Type': 'application/json',
+                                                    },
+                                                    body: JSON.stringify({
+                                                        quantity: quantity,
+                                                        price: price
+                                                    })
+                                                });
+
+                                                const result = await response.json();
+
+                                                if (response.ok) {
+                                                    buyMessage.className = 'alert alert-success mt-2';
+                                                    buyMessage.textContent = 'Achat effectué avec succès !';
+                                                    quantityInput.value = '';
+                                                    totalPriceSpan.textContent = '0.00';
+                                                } else {
+                                                    buyMessage.className = 'alert alert-danger mt-2';
+                                                    
+                                                    // Si le prix a changé, mettre à jour le prix
+                                                    if (result.prix_actuel) {
+                                                        quantityInput.dataset.price = result.prix_actuel;
+                                                        currentPriceElement.textContent = result.prix_actuel + ' €';
+                                                        
+                                                        // Recalculer le total avec le nouveau prix
+                                                        const quantity = parseFloat(quantityInput.value) || 0;
+                                                        const total = quantity * result.prix_actuel;
+                                                        totalPriceSpan.textContent = total.toFixed(2);
+                                                    }
+                                                    
+                                                    buyMessage.textContent = result.error;
+                                                }
+                                            } catch (error) {
+                                                buyMessage.className = 'alert alert-danger mt-2';
+                                                buyMessage.textContent = 'Erreur de connexion';
+                                            }
+                                            
+                                            buyMessage.style.display = 'block';
+                                        });
+                                    });
+                                </script>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+{% endblock %}

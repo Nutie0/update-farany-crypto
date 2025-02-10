@@ -1,0 +1,69 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Administration - Validation des transactions{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <h1>Validation des transactions</h1>
+
+    {% for label, messages in app.flashes %}
+        {% for message in messages %}
+            <div class="alert alert-{{ label }}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endfor %}
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Transactions en attente</h5>
+            
+            {% if transactions is empty %}
+                <p class="text-muted">Aucune transaction en attente de validation.</p>
+            {% else %}
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Utilisateur</th>
+                            <th>Type</th>
+                            <th>Montant</th>
+                            <th>Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in transactions %}
+                            <tr>
+                                <td>{{ transaction.id }}</td>
+                                <td>{{ transaction.idUtilisateur }}</td>
+                                <td>
+                                    <span class="badge {% if transaction.typeAction == 'depot' %}bg-success{% else %}bg-warning{% endif %}">
+                                        {{ transaction.typeAction|capitalize }}
+                                    </span>
+                                </td>
+                                <td>{{ transaction.montant|number_format(2, ',', ' ') }} €</td>
+                                <td>{{ transaction.dateAction|date('d/m/Y H:i') }}</td>
+                                <td>
+                                    <div class="btn-group" role="group">
+                                        <a href="{{ path('app_admin_validation_approve', {'id': transaction.id}) }}" 
+                                           class="btn btn-success btn-sm"
+                                           onclick="return confirm('Confirmer l\'approbation ?')">
+                                            <i class="fas fa-check"></i> Approuver
+                                        </a>
+                                        <a href="{{ path('app_admin_validation_reject', {'id': transaction.id}) }}" 
+                                           class="btn btn-danger btn-sm"
+                                           onclick="return confirm('Confirmer le rejet ?')">
+                                            <i class="fas fa-times"></i> Rejeter
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

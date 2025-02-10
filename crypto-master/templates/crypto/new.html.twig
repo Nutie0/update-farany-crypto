@@ -1,0 +1,37 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Ajouter une crypto{% endblock %}
+
+{% block body %}
+    <div class="container mt-4">
+        <h1>Ajouter une nouvelle crypto</h1>
+
+        {% for message in app.flashes('success') %}
+            <div class="alert alert-success">
+                {{ message }}
+            </div>
+        {% endfor %}
+
+        {{ form_start(form, {'attr': {'class': 'needs-validation'}}) }}
+        <div class="mb-3">
+            {{ form_label(form.nomCrypto) }}
+            {{ form_widget(form.nomCrypto) }}
+            {{ form_errors(form.nomCrypto) }}
+        </div>
+
+        <div class="mb-3">
+            {{ form_label(form.nbrCrypto) }}
+            {{ form_widget(form.nbrCrypto) }}
+            {{ form_errors(form.nbrCrypto) }}
+        </div>
+
+        <div class="mb-3">
+            {{ form_label(form.prixInitialeCrypto) }}
+            {{ form_widget(form.prixInitialeCrypto) }}
+            {{ form_errors(form.prixInitialeCrypto) }}
+        </div>
+
+        <button type="submit" class="btn btn-primary">Ajouter</button>
+        {{ form_end(form) }}
+    </div>
+{% endblock %}

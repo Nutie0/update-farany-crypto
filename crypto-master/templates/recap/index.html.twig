@@ -1,0 +1,217 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Récapitulatif des Portefeuilles{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <style>
+        .recap-container {
+            margin: 2rem auto;
+            padding: 2rem;
+            background: white;
+            border-radius: 1rem;
+            box-shadow: 0 0 20px rgba(0,0,0,0.1);
+        }
+
+        .filter-section {
+            background: #f8f9fa;
+            padding: 1.5rem;
+            border-radius: 0.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .filter-title {
+            font-size: 1.2rem;
+            color: #333;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+
+        .filter-form {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+        }
+
+        .filter-group {
+            flex: 1;
+        }
+
+        .filter-group label {
+            display: block;
+            margin-bottom: 0.5rem;
+            color: #495057;
+            font-weight: 500;
+        }
+
+        .filter-input {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .filter-button {
+            background-color: #0d6efd;
+            color: white;
+            border: none;
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            height: fit-content;
+        }
+
+        .filter-button:hover {
+            background-color: #0b5ed7;
+        }
+
+        .recap-table {
+            width: 100%;
+            border-collapse: separate;
+            border-spacing: 0;
+            margin-top: 1rem;
+        }
+
+        .recap-table th,
+        .recap-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+
+        .recap-table th {
+            background-color: #f8f9fa;
+            font-weight: 600;
+            color: #495057;
+            position: sticky;
+            top: 0;
+        }
+
+        .recap-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .recap-table tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        .value-cell {
+            text-align: right;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        .table-container {
+            overflow-x: auto;
+            margin-top: 1rem;
+            border: 1px solid #dee2e6;
+            border-radius: 0.5rem;
+        }
+
+        .page-title {
+            color: #333;
+            margin-bottom: 2rem;
+            font-size: 2rem;
+        }
+
+        @media (max-width: 768px) {
+            .filter-form {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .filter-button {
+                width: 100%;
+            }
+        }
+    </style>
+{% endblock %}
+
+{% block body %}
+    <div class="container">
+        <div class="recap-container">
+            <h2 class="page-title">Récapitulatif des Portefeuilles</h2>
+
+            {# Messages Flash #}
+            {% for label, messages in app.flashes %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ label == 'error' ? 'danger' : label }} alert-dismissible fade show" role="alert">
+                        {% if label == 'error' %}
+                            <h4 class="alert-heading">Erreur</h4>
+                            <pre class="mb-0" style="white-space: pre-wrap;">{{ message }}</pre>
+                        {% else %}
+                            {{ message }}
+                        {% endif %}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endfor %}
+
+            {# Section Filtre #}
+            <div class="filter-section">
+                <h3 class="filter-title">Filtre</h3>
+                <form class="filter-form" method="GET">
+                    <div class="filter-group">
+                        <label for="date_max">Date et heure max</label>
+                        <input type="datetime-local" id="date_max" name="date_max" 
+                               class="filter-input"
+                               value="{{ date_max|date('Y-m-d\\TH:i') }}"
+                               required>
+                    </div>
+                    <button type="submit" class="filter-button">
+                        Appliquer le filtre
+                    </button>
+                </form>
+            </div>
+
+            {# Tableau Récapitulatif #}
+            <div class="table-container">
+                <table class="recap-table">
+                    <thead>
+                        <tr>
+                            <th>Utilisateur</th>
+                            <th>Total Achat</th>
+                            <th>Total Vente</th>
+                            <th>Valeur portefeuille</th>
+                            <th>Rendement</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                            <tr>
+                                <td>{{ user.user_name }}</td>
+                                <td class="value-cell">{{ user.total_achat|number_format(2, ',', ' ') }} €</td>
+                                <td class="value-cell">{{ user.total_vente|number_format(2, ',', ' ') }} €</td>
+                                <td class="value-cell">{{ user.valeur_portefeuille|number_format(2, ',', ' ') }} €</td>
+                                <td class="value-cell {% if user.rendement_pourcentage >= 0 %}text-success{% else %}text-danger{% endif %}">
+                                    {{ user.rendement_pourcentage|number_format(2, ',', ' ') }}%
+                                </td>
+                            </tr>
+                        {% endfor %}
+                        {% if users is empty %}
+                            <tr>
+                                <td colspan="5" class="text-center">Aucune donnée disponible</td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Si aucune date n'est sélectionnée, on met la date actuelle
+            const dateMax = document.getElementById('date_max');
+            if (!dateMax.value) {
+                const now = new Date();
+                dateMax.value = now.toISOString().slice(0, 16);
+            }
+        });
+    </script>
+{% endblock %}

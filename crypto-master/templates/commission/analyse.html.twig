@@ -1,0 +1,254 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}Analyse des commissions{% endblock %}
+
+{% block stylesheets %}
+    {{ parent() }}
+    <link href="https://cdn.datatables.net/1.13.7/css/dataTables.bootstrap5.min.css" rel="stylesheet">
+{% endblock %}
+
+{% block javascripts %}
+    {{ parent() }}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.7/js/dataTables.bootstrap5.min.js"></script>
+    {% if data is not null %}
+    <script>
+        // Fonction pour initialiser les graphiques
+        function initializeCharts() {
+            try {
+                const chartData = {
+                    evolution: {{ data.evolution_temporelle|default([])|json_encode|raw }},
+                    distribution: {{ data.distribution|default([])|json_encode|raw }}
+                };
+
+                // Supprimer les anciens graphiques s'ils existent
+                Chart.getChart('lineChart')?.destroy();
+                Chart.getChart('distributionChart')?.destroy();
+
+                // Graphique d'évolution temporelle
+                const ctxLine = document.getElementById('lineChart');
+                if (ctxLine && chartData.evolution.length > 0) {
+                    new Chart(ctxLine, {
+                        type: 'line',
+                        data: {
+                            labels: chartData.evolution.map(e => new Date(e.date).toLocaleDateString('fr-FR')),
+                            datasets: [{
+                                label: 'Commission achat',
+                                data: chartData.evolution.map(e => e.commission_achat),
+                                borderColor: '#0d6efd',
+                                tension: 0.1,
+                                fill: false
+                            },
+                            {
+                                label: 'Commission vente',
+                                data: chartData.evolution.map(e => e.commission_vente),
+                                borderColor: '#20c997',
+                                tension: 0.1,
+                                fill: false
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: value => value.toFixed(2) + '€'
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Graphique de distribution
+                const ctxDist = document.getElementById('distributionChart');
+                if (ctxDist && chartData.distribution.length > 0) {
+                    new Chart(ctxDist, {
+                        type: 'bar',
+                        data: {
+                            labels: chartData.distribution.map(d => d.tranche + '€'),
+                            datasets: [{
+                                label: '{{ type_analyse == "somme" ? "Nombre de transactions" : "Moyenne des commissions" }}',
+                                data: chartData.distribution.map(d => d.valeur),
+                                backgroundColor: '#0d6efd'
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: value => {
+                                            {% if type_analyse == 'somme' %}
+                                                return Math.round(value);
+                                            {% else %}
+                                                return value.toFixed(2) + '€';
+                                            {% endif %}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                // Initialiser DataTable
+                const table = document.getElementById('cryptoTable');
+                if (table) {
+                    if ($.fn.DataTable.isDataTable(table)) {
+                        $(table).DataTable().destroy();
+                    }
+                    $(table).DataTable({
+                        language: {
+                            url: 'https://cdn.datatables.net/plug-ins/1.13.7/i18n/fr-FR.json'
+                        },
+                        pageLength: 10,
+                        order: [[1, 'desc']]
+                    });
+                }
+            } catch (error) {
+                console.error('Erreur lors de l\'initialisation des graphiques:', error);
+            }
+        }
+
+        // Initialiser les graphiques au chargement de la page
+        document.addEventListener('DOMContentLoaded', initializeCharts);
+        
+        // Réinitialiser les graphiques après une navigation Turbo
+        document.addEventListener('turbo:render', initializeCharts);
+        
+        // Réinitialiser les graphiques après un rechargement Ajax
+        document.addEventListener('turbo:frame-render', initializeCharts);
+    </script>
+    {% endif %}
+{% endblock %}
+
+{% block body %}
+<div class="container mt-4">
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filtres d'analyse</h5>
+        </div>
+        <div class="card-body">
+            <form method="post" class="row g-3" data-turbo="true">
+                <div class="col-md-3">
+                    <label for="crypto" class="form-label">Cryptomonnaie</label>
+                    <select name="crypto" id="crypto" class="form-select">
+                        <option value="tous" {% if crypto_selected == 'tous' %}selected{% endif %}>Toutes les cryptos</option>
+                        {% for crypto in cryptos %}
+                            <option value="{{ crypto.nomCrypto }}" {% if crypto_selected == crypto.nomCrypto %}selected{% endif %}>
+                                {{ crypto.nomCrypto }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="type_analyse" class="form-label">Type d'analyse</label>
+                    <select name="type_analyse" id="type_analyse" class="form-select">
+                        <option value="somme" {% if type_analyse == 'somme' %}selected{% endif %}>Somme</option>
+                        <option value="moyenne" {% if type_analyse == 'moyenne' %}selected{% endif %}>Moyenne</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="date_min" class="form-label">Date début</label>
+                    <input type="datetime-local" class="form-control" id="date_min" name="date_min" value="{{ date_min }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="date_max" class="form-label">Date fin</label>
+                    <input type="datetime-local" class="form-control" id="date_max" name="date_max" value="{{ date_max }}">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary">Analyser</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    {% if data is not null %}
+        {# Vue d'ensemble #}
+        <div class="row mb-4">
+            {% if type_analyse == 'somme' %}
+            <div class="col-md-6">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Total des commissions</h5>
+                        <p class="card-text display-6">{{ data.total_commission|number_format(2, ',', ' ') }} €</p>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="col-md-6">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Moyenne des commissions</h5>
+                        <p class="card-text display-6">{{ data.commission_moyenne|number_format(2, ',', ' ') }} €</p>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <div class="col-md-6">
+                <div class="card text-center">
+                    <div class="card-body">
+                        <h5 class="card-title">Nombre de transactions</h5>
+                        <p class="card-text display-6">{{ data.nb_transactions }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Graphiques #}
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Évolution temporelle</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="lineChart"></canvas>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Distribution des commissions</h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="distributionChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {# Tableau détaillé #}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Détail par crypto</h5>
+            </div>
+            <div class="card-body">
+                <table id="cryptoTable" class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Crypto</th>
+                            <th>{{ type_analyse == 'somme' ? 'Total commissions' : 'Moyenne commissions' }}</th>
+                            <th>Nombre de transactions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in data.crypto_analysis %}
+                        <tr>
+                            <td>{{ item.crypto }}</td>
+                            <td>{{ item.valeur_commission|number_format(2, ',', ' ') }} €</td>
+                            <td>{{ item.nb_transactions }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
