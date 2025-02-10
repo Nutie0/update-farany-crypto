@@ -282,7 +282,7 @@ class CryptoController extends AbstractController
             }
 
             $total = $quantity * $price;
-            $commission = $this->commissionService->calculerCommission($total, 'achat');
+            $commission = $this->commissionService->calculateCommission($total, 'achat');
             $totalWithCommission = $total + $commission;
 
             if ($portefeuille->getSoldeUtilisateur() < $totalWithCommission) {
