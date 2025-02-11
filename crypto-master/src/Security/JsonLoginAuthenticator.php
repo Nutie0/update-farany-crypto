@@ -95,46 +95,53 @@ class JsonLoginAuthenticator extends AbstractAuthenticator
                 $this->logger->info('Réponse API - Contenu: ' . $content);
                 
                 if ($statusCode !== 200) {
-                    throw new CustomUserMessageAuthenticationException('Erreur d\'authentification: ' . $content);
+                    $errorData = json_decode($content, true);
+                    $errorMessage = $errorData['message'] ?? 'Erreur d\'authentification';
+                    
+                    // Gestion spécifique des erreurs
+                    if (strpos($errorMessage, 'verify your email') !== false || 
+                        strpos($errorMessage, 'vérifier votre adresse email') !== false) {
+                        throw new CustomUserMessageAuthenticationException('Veuillez vérifier votre adresse email avant de vous connecter.');
+                    }
+                    
+                    if (strpos($errorMessage, 'Trop de tentatives') !== false) {
+                        throw new CustomUserMessageAuthenticationException($errorMessage);
+                    }
+                    
+                    throw new CustomUserMessageAuthenticationException($errorMessage);
                 }
 
                 $responseData = json_decode($content, true);
-                if (!$responseData || !isset($responseData['token'])) {
-                    throw new CustomUserMessageAuthenticationException('Réponse API invalide');
+                if (!isset($responseData['token'])) {
+                    throw new CustomUserMessageAuthenticationException('Token manquant dans la réponse');
                 }
 
-                // Créer ou mettre à jour l'utilisateur local
-                return new SelfValidatingPassport(
-                    new UserBadge($data['email'], function($userIdentifier) use ($responseData) {
-                        $user = $this->entityManager->getRepository(Utilisateur::class)->findOneBy(['email' => $userIdentifier]);
-                        
-                        if (!$user) {
-                            $user = new Utilisateur();
-                            $user->setEmail($userIdentifier);
-                            $user->setRoles(['ROLE_USER']);
-                        }
+                // Mettre à jour ou créer l'utilisateur local
+                $user = $this->entityManager->getRepository(Utilisateur::class)->findOneBy(['email' => $data['email']]);
+                if (!$user) {
+                    $user = new Utilisateur();
+                    $user->setEmail($data['email']);
+                    $user->setRoles(['ROLE_USER']);
+                }
+                $user->setToken($responseData['token']);
+                $this->entityManager->persist($user);
+                $this->entityManager->flush();
 
-                        $user->setToken($responseData['token']);
-                        $this->entityManager->persist($user);
-                        $this->entityManager->flush();
-                        
-                        return $user;
-                    })
+                return new SelfValidatingPassport(
+                    new UserBadge($data['email'])
                 );
 
-            } catch (\Symfony\Contracts\HttpClient\Exception\TransportException $e) {
-                $this->logger->error('Transport Exception: ' . $e->getMessage());
-                throw new CustomUserMessageAuthenticationException('Impossible de contacter le serveur d\'authentification');
-            } catch (\Symfony\Contracts\HttpClient\Exception\ClientException $e) {
-                $this->logger->error('Client Exception: ' . $e->getMessage());
-                throw new CustomUserMessageAuthenticationException('Identifiants invalides');
+            } catch (CustomUserMessageAuthenticationException $e) {
+                throw $e;
             } catch (\Exception $e) {
-                $this->logger->error('Exception générale: ' . $e->getMessage());
-                throw new CustomUserMessageAuthenticationException('Erreur lors de l\'authentification: ' . $e->getMessage());
+                $this->logger->error('Erreur lors de l\'authentification: ' . $e->getMessage());
+                throw new CustomUserMessageAuthenticationException('Une erreur technique est survenue. Veuillez réessayer plus tard.');
             }
+        } catch (CustomUserMessageAuthenticationException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            $this->logger->error('Exception principale: ' . $e->getMessage());
-            throw new CustomUserMessageAuthenticationException($e->getMessage());
+            $this->logger->error('Erreur lors du traitement de la requête: ' . $e->getMessage());
+            throw new CustomUserMessageAuthenticationException('Une erreur technique est survenue. Veuillez réessayer plus tard.');
         }
     }
 

@@ -12,3 +12,7 @@ ADD COLUMN failed_login_attempts int defaulT 0;
 
 ALTER TABLE utilisateur
 DROP COLUMN ailed_login_attempts;
+
+ALTER TABLE utilisateur 
+ADD COLUMN email_verified BOOLEAN NOT NULL DEFAULT FALSE,
+ADD COLUMN verification_token VARCHAR(100);

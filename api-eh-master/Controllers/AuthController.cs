@@ -33,93 +33,141 @@ namespace UserApi.Controllers
         [HttpPost("register")]
         public IActionResult Register([FromBody] RegisterRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Nom))
-                return BadRequest("Email, password, and name are required.");
+            if (request == null || string.IsNullOrWhiteSpace(request.Email) ||
+                string.IsNullOrWhiteSpace(request.Password) || string.IsNullOrWhiteSpace(request.Nom))
+                return BadRequest(new { message = "Email, mot de passe et nom sont requis." });
 
             try
             {
+                // Valider le format de l'email
+                if (!IsValidEmail(request.Email))
+                    return BadRequest(new { message = "Format d'email invalide." });
+
                 var existingUser = _context.Utilisateurs.SingleOrDefault(u => u.Email == request.Email);
                 if (existingUser != null)
-                    return Conflict("Email already registered.");
+                    return Conflict(new { message = "Un compte existe déjà avec cette adresse email." });
 
+                var verificationToken = _emailService.GenerateVerificationToken();
                 var passwordHash = _passwordHasher.HashPassword(request.Password);
-                var user = new Utilisateur { Nom = request.Nom, Email = request.Email, PasswordHash = passwordHash };
+
+                var user = new Utilisateur
+                {
+                    Nom = request.Nom,
+                    Email = request.Email,
+                    PasswordHash = passwordHash,
+                    EmailVerified = false,
+                    VerificationToken = verificationToken
+                };
+
                 _context.Utilisateurs.Add(user);
-                _context.SaveChanges();
+                
+                try
+                {
+                    _context.SaveChanges();
+                }
+                catch (Exception ex)
+                {
+                    return StatusCode(500, new { message = "Erreur lors de l'enregistrement de l'utilisateur.", error = ex.Message });
+                }
 
-                return Ok("User registered successfully.");
+                try
+                {
+                    _emailService.SendVerificationEmail(user.Email, verificationToken);
+                }
+                catch (Exception ex)
+                {
+                    // Si l'envoi de l'email échoue, on supprime l'utilisateur
+                    _context.Utilisateurs.Remove(user);
+                    _context.SaveChanges();
+                    return StatusCode(500, new { message = "Erreur lors de l'envoi de l'email de vérification.", error = ex.Message });
+                }
+
+                return Ok(new { 
+                    message = "Inscription réussie ! Un email de confirmation a été envoyé à votre adresse.",
+                    userId = user.Id,
+                    email = user.Email,
+                    nom = user.Nom
+                });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
-            }
-        }
-
-        [HttpPost("reset-tentative")]
-        public IActionResult ResetTentative([FromQuery] string email)
-        {
-            if (string.IsNullOrWhiteSpace(email))
-                return BadRequest("Email is required.");
-
-            try
-            {
-                var user = _context.Utilisateurs.SingleOrDefault(u => u.Email == email);
-                if (user == null)
-                    return NotFound("User not found.");
-
-                user.FailedLoginAttempts = 0;
-                _context.SaveChanges();
-                return Ok("Failed login attempts have been reset.");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = "Une erreur interne est survenue.", error = ex.Message });
             }
         }
 
         [HttpPost("login")]
         public IActionResult Login([FromBody] LoginRequest request)
         {
-            if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
-                return BadRequest("Email and password are required.");
-
             try
             {
+                if (request == null || string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Password))
+                    return BadRequest(new { message = "Email et mot de passe requis." });
+
                 var user = _context.Utilisateurs.SingleOrDefault(u => u.Email == request.Email);
+
                 if (user == null)
-                    return Unauthorized("Invalid credentials.");
+                    return NotFound(new { message = "Utilisateur non trouvé." });
 
-                var maxFailedAttempts = _configuration.GetValue<int>("LoginSettings:MaxFailedAttempts");
-                if (user.FailedLoginAttempts >= maxFailedAttempts)
-                {
-                    var pin = _cache.Get<string>(user.Email);
-                    if (pin == null)
-                    {
-                        var newPin = _emailService.GenerateRandomPin();
-                        _emailService.SendPinEmail(user.Email, newPin);
-                        _cache.Set(user.Email, newPin, TimeSpan.FromMinutes(10));
-                        return Unauthorized("Maximum attempts reached. A PIN has been sent to your email.");
-                    }
-
-                    return Unauthorized("A PIN has already been sent to your email.");
-                }
+                if (!user.EmailVerified)
+                    return BadRequest(new { message = "Veuillez vérifier votre adresse email avant de vous connecter." });
 
                 if (!_passwordHasher.VerifyPassword(request.Password, user.PasswordHash))
                 {
                     user.FailedLoginAttempts++;
                     _context.SaveChanges();
-                    return Unauthorized("Invalid credentials.");
+
+                    if (user.FailedLoginAttempts >= 3)
+                    {
+                        // Envoyer un email de vérification pour réinitialiser les tentatives
+                        var newToken = _emailService.GenerateVerificationToken();
+                        user.VerificationToken = newToken;
+                        _context.SaveChanges();
+                        _emailService.SendVerificationEmail(user.Email, newToken);
+
+                        return BadRequest(new { 
+                            message = "Trop de tentatives échouées. Un email de vérification a été envoyé à votre adresse."
+                        });
+                    }
+
+                    return Unauthorized(new { message = "Mot de passe incorrect." });
                 }
 
+                // Réinitialiser le compteur de tentatives échouées
                 user.FailedLoginAttempts = 0;
                 _context.SaveChanges();
 
-                var token = GenerateJwtToken(user.Email);
-                return Ok(new { Token = token });
+                var token = GenerateJwtToken(user);
+                return Ok(new { token = token });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Internal server error: {ex.Message}");
+                return StatusCode(500, new { message = "Une erreur interne est survenue.", error = ex.Message });
+            }
+        }
+
+        [HttpGet("verify-email")]
+        public IActionResult VerifyEmail([FromQuery] string token)
+        {
+            try
+            {
+                if (string.IsNullOrEmpty(token))
+                    return BadRequest(new { message = "Token de vérification manquant." });
+
+                var user = _context.Utilisateurs.SingleOrDefault(u => u.VerificationToken == token);
+
+                if (user == null)
+                    return NotFound(new { message = "Token de vérification invalide." });
+
+                user.EmailVerified = true;
+                user.VerificationToken = ""; // Effacer le token après utilisation
+                user.FailedLoginAttempts = 0; // Réinitialiser les tentatives de connexion
+                _context.SaveChanges();
+
+                return Ok(new { message = "Email vérifié avec succès. Vous pouvez maintenant vous connecter." });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Une erreur est survenue lors de la vérification.", error = ex.Message });
             }
         }
 
@@ -141,7 +189,7 @@ namespace UserApi.Controllers
 
                 _cache.Remove(request.Email);
 
-                var token = GenerateJwtToken(user.Email);
+                var token = GenerateJwtToken(user);
                 return Ok(new { Token = token });
             }
             catch (Exception ex)
@@ -150,11 +198,11 @@ namespace UserApi.Controllers
             }
         }
 
-        private string GenerateJwtToken(string email)
+        private string GenerateJwtToken(Utilisateur user)
         {
             var claims = new List<Claim>
             {
-                new Claim(ClaimTypes.Name, email),
+                new Claim(ClaimTypes.Name, user.Email),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
             };
 
@@ -171,6 +219,19 @@ namespace UserApi.Controllers
             );
 
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private bool IsValidEmail(string email)
+        {
+            try
+            {
+                var addr = new System.Net.Mail.MailAddress(email);
+                return addr.Address == email;
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         public class PinVerificationRequest

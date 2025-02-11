@@ -112,3 +112,4 @@ F:\EXAM-FIN-S5-ROJO\test-api\api-eh-master\obj\Debug\net8.0\refint\UserApi.dll
 F:\EXAM-FIN-S5-ROJO\test-api\api-eh-master\obj\Debug\net8.0\UserApi.pdb
 F:\EXAM-FIN-S5-ROJO\test-api\api-eh-master\obj\Debug\net8.0\UserApi.genruntimeconfig.cache
 F:\EXAM-FIN-S5-ROJO\test-api\api-eh-master\obj\Debug\net8.0\ref\UserApi.dll
+F:\EXAM-FIN-S5-ROJO\test-api\api-eh-master\obj\Debug\net8.0\UserApi.sourcelink.json

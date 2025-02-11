@@ -6,29 +6,37 @@ namespace UserApi.Models
     public class Utilisateur
     {
         [Key]
-        [Column("id")] 
+        [Column("id")]
         public int Id { get; set; }
 
         [Required]
-        [Column("nom")] 
+        [Column("nom")]
         public string Nom { get; set; }
 
         [Required]
-        [Column("email")] 
+        [Column("email")]
         public string Email { get; set; }
 
         [Required]
-        [Column("password")] 
+        [Column("password")]
         public string PasswordHash { get; set; }
 
         
-        [Column("FailedLoginAttempts")] 
+        [Column("verification_token")]
+        public string VerificationToken { get; set; } = "";  // Initialisation avec une chaîne vide
+
+        [Column("email_verified")]
+        public bool EmailVerified { get; set; }
+
         public int FailedLoginAttempts { get; set; } = 0;
-        public Utilisateur() { 
+        public Utilisateur()
+        {
             Nom = string.Empty;
-            Email = string.Empty; 
+            Email = string.Empty;
             PasswordHash = string.Empty;
-            FailedLoginAttempts = 0; 
+            VerificationToken = string.Empty;
+            EmailVerified = false;
+            FailedLoginAttempts = 0;
         }
     }
 }

@@ -50,9 +50,10 @@ namespace UserApi.Services
         }
 
         // Méthode pour envoyer un email de réinitialisation des tentatives de connexion
-        public void SendPasswordResetEmail(string email)
+        public void SendVerificationEmail(string email, string token)
         {
             var smtpSettings = _configuration.GetSection("SmtpSettings");
+            var apiUrl = _configuration["AppSettings:BaseUrl"] ?? "http://localhost:8000"; // Utiliser la configuration
 
             var smtpClient = new SmtpClient
             {
@@ -65,19 +66,27 @@ namespace UserApi.Services
                 )
             };
 
-            var apiBaseUrl = _configuration["ApiBaseUrl"];
-            var resetUrl = $"{apiBaseUrl}/api/auth/reset-tentative?email={Uri.EscapeDataString(email)}";
+            var verificationLink = $"{apiUrl}/api/auth/verify-email?token={token}";
 
             var message = new MailMessage
             {
                 From = new MailAddress(smtpSettings["From"]),
-                Subject = "Reset Your Login Attempts",
-                Body = $"You have reached the maximum number of login attempts. Click the link below to reset your login attempts:\n\n{resetUrl}",
-                IsBodyHtml = false
+                Subject = "Vérification de votre adresse email",
+                Body = $@"
+                <h2>Bienvenue sur notre plateforme !</h2>
+                <p>Cliquez sur le lien ci-dessous pour vérifier votre adresse email :</p>
+                <p><a href='{verificationLink}'>{verificationLink}</a></p>
+                <p>Ce lien expirera dans 24 heures.</p>",
+                IsBodyHtml = true
             };
             message.To.Add(email);
 
             smtpClient.Send(message);
+        }
+
+        public string GenerateVerificationToken()
+        {
+            return Convert.ToBase64String(Guid.NewGuid().ToByteArray());
         }
     }
 }

@@ -11,19 +11,39 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Ajouter cette ligne pour écouter sur toutes les interfaces
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5000); // Écoute sur le port 5000 pour toutes les interfaces
+});
+
 // Configuration de la base de données
 builder.Services.AddDbContext<UserApi.Data.ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Configuration des services
+builder.Services.AddControllers();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+builder.Services.AddMemoryCache();
+
+// Configuration CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
+// Services personnalisés
+builder.Services.AddScoped<PasswordHasher>();
+builder.Services.AddScoped<EmailService>();
+
 // Enregistrement du service PasswordHasher
 builder.Services.AddScoped<IPasswordHasher<Utilisateur>, PasswordHasher<Utilisateur>>();
-
-// Enregistrement des autres services
-builder.Services.AddScoped<PasswordHasher>();
-builder.Services.AddTransient<EmailService>();
-
-// Enregistrement du service IMemoryCache
-builder.Services.AddMemoryCache();  // Ajout du cache en mémoire
 
 // Configuration du JWT
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>();
@@ -45,31 +65,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-// Ajout des contrôleurs
-builder.Services.AddControllers();
-
-// Configuration CORS
-builder.Services.AddCors(options =>
-{
-    options.AddDefaultPolicy(policy =>
-    {
-        policy.WithOrigins("http://localhost:8000")
-              .AllowAnyMethod()
-              .AllowAnyHeader()
-              .AllowCredentials();
-    });
-});
-
-// Configuration de Swagger
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new OpenApiInfo { Title = "My API", Version = "v1" });
-});
-
-// Configuration du journal
-builder.Logging.AddConsole();
-
 var app = builder.Build();
 
 // Configuration du port 5280
@@ -82,10 +77,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "My API v1"));
 }
 
-// Utilisation du CORS avant le routing et l'authentification
-app.UseCors();
-
-// Middleware pour l'authentification et l'autorisation
+// Middleware
+app.UseCors("AllowAll");
 app.UseAuthentication();  // Permet l'authentification avec le JWT
 app.UseAuthorization();   // Permet d'utiliser les autorisations définies
 

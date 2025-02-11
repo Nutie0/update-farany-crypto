@@ -58,6 +58,15 @@ class HomeController extends AbstractController
         $wallet = $entityManager->getRepository(Portefeuille::class)
             ->findOneBy(['utilisateur' => $user]);
 
+        // Créer un portefeuille s'il n'existe pas
+        if (!$wallet) {
+            $wallet = new Portefeuille();
+            $wallet->setUtilisateur($user);
+            $wallet->setSoldeUtilisateur(0);
+            $entityManager->persist($wallet);
+            $entityManager->flush();
+        }
+
         // Si l'utilisateur est admin, récupérer le nombre de transactions en attente
         if ($this->isGranted('ROLE_ADMIN')) {
             $transactionsCount = $entityManager->getRepository(HistoriqueUtilisateur::class)

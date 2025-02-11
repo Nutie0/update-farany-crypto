@@ -52,6 +52,19 @@ class FormLoginAuthenticator extends AbstractLoginFormAuthenticator
         $this->logger = $logger;
     }
 
+    public function supports(Request $request): bool
+    {
+        $this->logger->info('Vérification du support de la requête', [
+            'path' => $request->getPathInfo(),
+            'method' => $request->getMethod(),
+            'is_xhr' => $request->isXmlHttpRequest(),
+            'content_type' => $request->headers->get('Content-Type')
+        ]);
+
+        return $request->isMethod('POST') && 
+               ($request->getPathInfo() === '/login' || $request->getPathInfo() === '/api/auth/login');
+    }
+
     public function authenticate(Request $request): Passport
     {
         $username = $request->request->get('_username', '');
@@ -100,47 +113,39 @@ class FormLoginAuthenticator extends AbstractLoginFormAuthenticator
             if ($statusCode !== 200) {
                 $this->logger->error('Échec de l\'authentification API', [
                     'status_code' => $statusCode,
-                    'response' => $content
+                    'content' => $content
                 ]);
-                throw new CustomUserMessageAuthenticationException('Identifiants invalides');
+
+                $errorData = json_decode($content, true);
+                $errorMessage = $errorData['message'] ?? 'Erreur d\'authentification';
+                
+                // Vérifier si l'erreur est liée à la vérification de l'email
+                if (strpos($errorMessage, 'verify your email') !== false) {
+                    throw new CustomUserMessageAuthenticationException('Veuillez vérifier votre adresse email avant de vous connecter.');
+                }
+                
+                throw new CustomUserMessageAuthenticationException($errorMessage);
             }
 
             $responseData = json_decode($content, true);
-            if (!$responseData || !isset($responseData['token'])) {
-                $this->logger->error('Réponse API invalide', [
-                    'response_data' => $responseData
-                ]);
-                throw new CustomUserMessageAuthenticationException('Réponse API invalide');
+            if (!isset($responseData['token'])) {
+                $this->logger->error('Token manquant dans la réponse API');
+                throw new CustomUserMessageAuthenticationException('Une erreur technique est survenue.');
             }
 
-            return new SelfValidatingPassport(
-                new UserBadge($username, function($userIdentifier) use ($responseData) {
-                    $this->logger->info('Recherche/création de l\'utilisateur local', [
-                        'email' => $userIdentifier
-                    ]);
+            // Mettre à jour ou créer l'utilisateur local
+            $user = $this->entityManager->getRepository(Utilisateur::class)->findOneBy(['email' => $username]);
+            if (!$user) {
+                $user = new Utilisateur();
+                $user->setEmail($username);
+                $user->setRoles(['ROLE_USER']);
+            }
+            $user->setToken($responseData['token']);
+            $this->entityManager->persist($user);
+            $this->entityManager->flush();
 
-                    $user = $this->entityManager->getRepository(Utilisateur::class)
-                        ->findOneBy(['email' => $userIdentifier]);
-                    
-                    if (!$user) {
-                        $this->logger->info('Création d\'un nouvel utilisateur');
-                        $user = new Utilisateur();
-                        $user->setEmail($userIdentifier);
-                        $user->setRoles(['ROLE_USER']);
-                        
-                        // Créer un portefeuille pour le nouvel utilisateur
-                        $portefeuille = new Portefeuille();
-                        $portefeuille->setUtilisateur($user);
-                        $portefeuille->setSoldeUtilisateur(0);
-                        $this->entityManager->persist($portefeuille);
-                    }
-                    
-                    $user->setToken($responseData['token']);
-                    $this->entityManager->persist($user);
-                    $this->entityManager->flush();
-                    
-                    return $user;
-                }),
+            return new SelfValidatingPassport(
+                new UserBadge($username),
                 [
                     new CsrfTokenBadge('authenticate', $csrfToken),
                     new RememberMeBadge()
@@ -150,32 +155,45 @@ class FormLoginAuthenticator extends AbstractLoginFormAuthenticator
         } catch (CustomUserMessageAuthenticationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            $this->logger->error('Erreur inattendue lors de l\'authentification', [
+            $this->logger->error('Erreur lors de l\'authentification', [
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            throw new CustomUserMessageAuthenticationException('Une erreur est survenue lors de l\'authentification');
+            throw new CustomUserMessageAuthenticationException('Une erreur technique est survenue. Veuillez réessayer plus tard.');
         }
     }
 
     public function onAuthenticationSuccess(Request $request, TokenInterface $token, string $firewallName): ?Response
     {
-        $this->logger->info('Authentification réussie, redirection vers la page d\'accueil', [
+        $this->logger->info('Authentification réussie', [
             'user' => $token->getUserIdentifier(),
-            'roles' => $token->getRoleNames()
+            'firewall' => $firewallName
         ]);
-        
+
         if ($targetPath = $this->getTargetPath($request->getSession(), $firewallName)) {
-            $this->logger->info('Redirection vers le chemin cible', [
-                'target_path' => $targetPath
-            ]);
             return new RedirectResponse($targetPath);
         }
 
         return new RedirectResponse($this->urlGenerator->generate('app_home'));
     }
 
-    protected function getLoginUrl(Request $request): string
+    public function onAuthenticationFailure(Request $request, AuthenticationException $exception): Response
+    {
+        $this->logger->error('Échec de l\'authentification', [
+            'error' => $exception->getMessage(),
+            'trace' => $exception->getTraceAsString()
+        ]);
+
+        if ($request->hasSession()) {
+            $request->getSession()->set(SecurityRequestAttributes::AUTHENTICATION_ERROR, $exception);
+        }
+
+        $url = $this->getLoginUrl($request);
+
+        return new RedirectResponse($url);
+    }
+
+    public function getLoginUrl(Request $request): string
     {
         return $this->urlGenerator->generate(self::LOGIN_ROUTE);
     }

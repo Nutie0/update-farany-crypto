@@ -26,7 +26,7 @@
                         <i class="fas fa-wallet me-2"></i>Mon Portefeuille
                     </h5>
                     <div class="wallet-balance mb-3">
-                        <p class="solde">{{ wallet.soldeUtilisateur|number_format(2, ',', ' ') }} €</p>
+                        <p class="solde">{{ wallet is not null ? wallet.soldeUtilisateur|number_format(2, ',', ' ') : '0,00' }} €</p>
                     </div>
                     <p class="card-text">Gérez votre portefeuille crypto</p>
                     <a href="{{ path('app_portefeuille') }}" class="btn btn-primary">

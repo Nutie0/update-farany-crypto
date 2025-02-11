@@ -30,6 +30,20 @@ class Utilisateur implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToOne(mappedBy: 'utilisateur', targetEntity: Portefeuille::class, cascade: ['persist', 'remove'])]
     private ?Portefeuille $portefeuille = null;
 
+    #[ORM\Column(type: 'boolean', options: ['default' => false])]
+    private bool $emailVerified = false;
+    
+    public function isEmailVerified(): bool
+    {
+        return $this->emailVerified;
+    }
+
+    public function setEmailVerified(bool $emailVerified): self
+    {
+        $this->emailVerified = $emailVerified;
+        return $this;
+    }
+
     public function getId(): ?int
     {
         return $this->id;

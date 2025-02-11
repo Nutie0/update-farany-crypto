@@ -1,3 +1,4 @@
+{# templates/registration/register.html.twig #}
 {% extends 'base.html.twig' %}
 
 {% block title %}Inscription - Crypto{% endblock %}
@@ -24,14 +25,31 @@
                             {{ message }}
                         </div>
                     {% endfor %}
+
+                    {% for message in app.flashes('verify_email') %}
+                        <div class="alert alert-info">
+                            {{ message }}
+                        </div>
+                    {% endfor %}
                     
-                    <form action="{{ path('app_register') }}" method="post">
+                    <form action="{{ path('api_auth_register') }}" method="post">
+                        <div class="mb-3">
+                            <label for="nom" class="form-label">
+                                <i class="fas fa-user me-2"></i>Nom:
+                            </label>
+                            <input type="text" id="nom" name="nom" class="form-control" 
+                                   required autocomplete="name"
+                                   value="{{ last_nom|default('') }}"
+                                   placeholder="Entrez votre nom">
+                        </div>
+
                         <div class="mb-3">
                             <label for="email" class="form-label">
                                 <i class="fas fa-envelope me-2"></i>Email:
                             </label>
                             <input type="email" id="email" name="email" class="form-control" 
                                    required autocomplete="email"
+                                   value="{{ last_email|default('') }}"
                                    placeholder="Entrez votre email">
                         </div>
                         
@@ -55,7 +73,7 @@
                         <p class="mb-0">
                             Déjà un compte ? 
                             <a href="{{ path('app_login') }}" class="text-primary">
-                                <i class="fas fa-sign-in-alt me-1"></i>Connectez-vous
+                                Se connecter
                             </a>
                         </p>
                     </div>

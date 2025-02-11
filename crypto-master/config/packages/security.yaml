@@ -1,7 +1,9 @@
 security:
     password_hashers:
         Symfony\Component\Security\Core\User\PasswordAuthenticatedUserInterface: 'auto'
-    
+        App\Entity\Utilisateur:
+            algorithm: auto
+
     providers:
         app_user_provider:
             entity:
@@ -13,39 +15,33 @@ security:
             pattern: ^/(_(profiler|wdt)|css|images|js)/
             security: false
         
+        verification:
+            pattern: ^/api/auth/verify-email
+            security: false
+        
         api:
             pattern: ^/api
             stateless: true
             provider: app_user_provider
             custom_authenticators:
                 - App\Security\JsonLoginAuthenticator
-                - App\Security\TokenAuthenticator
 
         main:
             lazy: true
             provider: app_user_provider
             custom_authenticators:
                 - App\Security\FormLoginAuthenticator
-            entry_point: App\Security\FormLoginAuthenticator
-            form_login:
-                login_path: app_login
-                check_path: app_login
-                enable_csrf: true
-                default_target_path: app_home
-                always_use_default_target_path: true
             logout:
                 path: app_logout
-                target: app_login
-            remember_me:
-                secret: '%kernel.secret%'
-                lifetime: 604800
-                path: /
 
     access_control:
-        - { path: ^/login, roles: PUBLIC_ACCESS }
-        - { path: ^/register, roles: PUBLIC_ACCESS }
+        # Routes publiques
+        - { path: ^/api/auth/verify-email, roles: PUBLIC_ACCESS }
         - { path: ^/api/auth/(login|register), roles: PUBLIC_ACCESS }
         - { path: ^/api/docs, roles: PUBLIC_ACCESS }
+        - { path: ^/login, roles: PUBLIC_ACCESS }
+        - { path: ^/register, roles: PUBLIC_ACCESS }
+        # Routes protégées
         - { path: ^/api, roles: IS_AUTHENTICATED_FULLY }
         - { path: ^/, roles: IS_AUTHENTICATED_FULLY }
 

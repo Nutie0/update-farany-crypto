@@ -466,7 +466,7 @@ BEGIN
 
         -- If no previous variation, use the initial price
         IF prix_evolue IS NULL THEN
-            prix_evolue := rec.prixinitialecrypto;
+            prix_evolue := rec.prix_initiale_crypto;
         END IF;
 
         -- Calculate the variation
